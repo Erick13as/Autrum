@@ -24,3 +24,7 @@ include("Autrum.jl")
 
 julia
 include("Autrum.jl")
+
+## Cerrar julia
+
+exit()
