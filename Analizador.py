@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 import pyaudio
 import wave
 import threading
@@ -20,6 +20,8 @@ class AudioAnalyzerApp:
         self.frames = []
         self.stream = None
         self.last_file_path = None
+        self.loaded_file_path = None  # Added to track loaded file paths
+        self.is_recently_recorded = False  # Flag to track if the file is newly recorded
 
         # Configuración del micrófono
         self.audio = pyaudio.PyAudio()
@@ -34,12 +36,14 @@ class AudioAnalyzerApp:
         self.continue_button = tk.Button(root, text="Continuar Grabación", command=self.continue_recording, state=tk.DISABLED)
         self.save_button = tk.Button(root, text="Guardar Grabación", command=self.save_recording, state=tk.DISABLED)
         self.plot_button = tk.Button(root, text="Graficar Señal", command=self.plot_last_recording, state=tk.DISABLED)
+        self.load_button = tk.Button(root, text="Cargar Archivo WAV", command=self.load_wav_file)
 
         self.start_button.pack(pady=10)
         self.stop_button.pack(pady=10)
         self.continue_button.pack(pady=10)
         self.save_button.pack(pady=10)
         self.plot_button.pack(pady=10)
+        self.load_button.pack(pady=10)
 
         # Inicializar la figura de Matplotlib
         self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
@@ -68,6 +72,28 @@ class AudioAnalyzerApp:
     def start_recording(self):
         self.is_recording = True
         self.frames = []
+
+        # Close all existing plot windows and open real-time graph
+        plt.close('all')
+        self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        self.line1, = self.ax1.plot([], [])
+        self.line2, = self.ax2.plot([], [])
+        self.ax1.set_title("Señal en el dominio del tiempo")
+        self.ax1.set_xlabel("Muestras")
+        self.ax1.set_ylabel("Amplitud")
+        self.ax2.set_title("Transformada de Fourier")
+        self.ax2.set_xlabel("Frecuencia (Hz)")
+        self.ax2.set_ylabel("Amplitud")
+
+        self.ax1.set_xlim(0, self.chunk)
+        self.ax1.set_ylim(-32768, 32767)
+        self.ax2.set_xlim(0, self.rate / 2)
+        self.ax2.set_ylim(0, 1)
+
+        self.fig.tight_layout()
+        plt.ion()
+        plt.show()
+
         self.stream = self.audio.open(format=self.format, channels=self.channels, rate=self.rate, input=True, frames_per_buffer=self.chunk)
         self.update_buttons(recording=True)
         threading.Thread(target=self.record_audio).start()
@@ -150,8 +176,10 @@ class AudioAnalyzerApp:
             messagebox.showinfo("Guardado", f"Grabación guardada como {wav_file_path} y {atm_file_path}")
 
     def plot_last_recording(self):
+        # Close any existing plot windows
+        plt.close('all')
+
         if self.last_file_path and os.path.exists(self.last_file_path):
-            plt.close(self.fig)  # Cerrar la ventana de las gráficas en tiempo real
             signal, rate = self.load_wave_file(self.last_file_path)
 
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
@@ -171,6 +199,21 @@ class AudioAnalyzerApp:
 
             fig.tight_layout()
             plt.show()
+
+            # Save ATM file only if the loaded file was a .wav and not recorded recently
+            if not self.is_recently_recorded and self.loaded_file_path:
+                atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
+                with open(atm_file_path, 'wb') as af:
+                    # Guardar el audio original
+                    af.write(struct.pack('I', len(signal)))
+                    af.write(signal.tobytes())
+                    
+                    # Guardar los datos de la FFT
+                    af.write(struct.pack('I', len(xf)))
+                    af.write(xf.tobytes())
+                    af.write(yf[:len(signal)//2].tobytes())
+
+                messagebox.showinfo("Guardado", f"Archivo ATM creado como {atm_file_path}")
         else:
             messagebox.showerror("Error", "No se encontró el archivo de grabación.")
 
@@ -180,6 +223,15 @@ class AudioAnalyzerApp:
             signal = np.frombuffer(frames, dtype=np.int16)
             rate = wf.getframerate()
             return signal, rate
+
+    def load_wav_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
+        if file_path:
+            self.loaded_file_path = file_path
+            self.last_file_path = file_path
+            self.is_recently_recorded = False  # Mark as loaded from file, not recorded
+            self.plot_button.config(state=tk.NORMAL)
+            messagebox.showinfo("Archivo cargado", f"Archivo {file_path} cargado exitosamente.")
 
     def update_buttons(self, recording):
         if recording:
