@@ -20,8 +20,8 @@ class AudioAnalyzerApp:
         self.frames = []
         self.stream = None
         self.last_file_path = None
-        self.loaded_file_path = None  # Added to track loaded file paths
-        self.is_recently_recorded = False  # Flag to track if the file is newly recorded
+        self.loaded_file_path = None  
+        self.is_recently_recorded = False  
 
         # Configuración del micrófono
         self.audio = pyaudio.PyAudio()
@@ -73,7 +73,7 @@ class AudioAnalyzerApp:
         self.is_recording = True
         self.frames = []
 
-        # Close all existing plot windows and open real-time graph
+        # Cierra todas las ventanas de gráficos existentes y abre el gráfico en tiempo real
         plt.close('all')
         self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
         self.line1, = self.ax1.plot([], [])
@@ -176,7 +176,7 @@ class AudioAnalyzerApp:
             messagebox.showinfo("Guardado", f"Grabación guardada como {wav_file_path} y {atm_file_path}")
 
     def plot_last_recording(self):
-        # Close any existing plot windows
+        # Cierra cualquier ventana de gráfico existente
         plt.close('all')
 
         if self.last_file_path and os.path.exists(self.last_file_path):
@@ -200,7 +200,7 @@ class AudioAnalyzerApp:
             fig.tight_layout()
             plt.show()
 
-            # Save ATM file only if the loaded file was a .wav and not recorded recently
+            # Guarda el archivo ATM solo si el archivo no se grabó recientemente
             if not self.is_recently_recorded and self.loaded_file_path:
                 atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
                 with open(atm_file_path, 'wb') as af:
@@ -229,7 +229,7 @@ class AudioAnalyzerApp:
         if file_path:
             self.loaded_file_path = file_path
             self.last_file_path = file_path
-            self.is_recently_recorded = False  # Mark as loaded from file, not recorded
+            self.is_recently_recorded = False 
             self.plot_button.config(state=tk.NORMAL)
             messagebox.showinfo("Archivo cargado", f"Archivo {file_path} cargado exitosamente.")
 
