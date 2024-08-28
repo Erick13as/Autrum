@@ -29,6 +29,7 @@ class AudioAnalyzerApp:
         self.channels = 1
         self.rate = 44100
         self.chunk = 1024
+        self.recording_duration = 5  # Duración en segundos para actualizar el gráfico
 
         # Elementos de la interfaz gráfica
         self.start_button = tk.Button(root, text="Iniciar Grabación", command=self.start_recording)
@@ -56,7 +57,7 @@ class AudioAnalyzerApp:
         self.ax2.set_xlabel("Frecuencia (Hz)")
         self.ax2.set_ylabel("Amplitud")
 
-        self.ax1.set_xlim(0, self.chunk)
+        self.ax1.set_xlim(0, self.chunk * self.recording_duration)
         self.ax1.set_ylim(-32768, 32767)
         self.ax2.set_xlim(0, self.rate / 2)
         self.ax2.set_ylim(0, 1)
@@ -85,7 +86,7 @@ class AudioAnalyzerApp:
         self.ax2.set_xlabel("Frecuencia (Hz)")
         self.ax2.set_ylabel("Amplitud")
 
-        self.ax1.set_xlim(0, self.chunk)
+        self.ax1.set_xlim(0, self.chunk * self.recording_duration)
         self.ax1.set_ylim(-32768, 32767)
         self.ax2.set_xlim(0, self.rate / 2)
         self.ax2.set_ylim(0, 1)
@@ -113,17 +114,27 @@ class AudioAnalyzerApp:
 
     def record_audio(self):
         while self.is_recording:
-            data = self.stream.read(self.chunk)
-            self.frames.append(data)
-            # Almacenar los datos para la próxima actualización de la gráfica
-            self.latest_data = data
+            data = []
+            for _ in range(0, int(self.rate / self.chunk * self.recording_duration)):
+                if not self.is_recording:
+                    break
+                chunk_data = self.stream.read(self.chunk)
+                data.append(chunk_data)
+                self.frames.append(chunk_data)
+            if data:
+                self.latest_data = b''.join(data)
+                # Usar after para actualizar el gráfico en el hilo principal con toda la señal
+                self.root.after(0, self.update_graph)
 
     def update_graph_periodically(self):
         if hasattr(self, 'latest_data'):
-            self.update_graph(self.latest_data)
+            self.update_graph()
         self.root.after(self.update_interval, self.update_graph_periodically)
 
-    def update_graph(self, data):
+    def update_graph(self, data=None):
+        # Usar todos los frames acumulados si data es None
+        if data is None:
+            data = b''.join(self.frames)
         signal = np.frombuffer(data, dtype=np.int16)
         self.line1.set_data(np.arange(len(signal)), signal)
 
@@ -159,6 +170,7 @@ class AudioAnalyzerApp:
             signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
             yf = fft(signal)
             xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
+            yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])  # Aseguramos que yf tenga la misma longitud que xf
             
             # Guardar archivo ATM
             with open(atm_file_path, 'wb') as af:
@@ -169,10 +181,11 @@ class AudioAnalyzerApp:
                 # Guardar los datos de la FFT
                 af.write(struct.pack('I', len(xf)))
                 af.write(xf.tobytes())
-                af.write(yf[:len(signal)//2].tobytes())
+                af.write(yf.tobytes())
             
             self.last_file_path = wav_file_path
             self.plot_button.config(state=tk.NORMAL)
+            self.update_buttons(saved=True)
             messagebox.showinfo("Guardado", f"Grabación guardada como {wav_file_path} y {atm_file_path}")
 
     def plot_last_recording(self):
@@ -180,7 +193,7 @@ class AudioAnalyzerApp:
         plt.close('all')
 
         if self.last_file_path and os.path.exists(self.last_file_path):
-            signal, rate = self.load_wave_file(self.last_file_path)
+            signal, xf, yf = self.load_signal_and_fft(self.last_file_path)
 
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
             ax1.plot(np.arange(len(signal)), signal)
@@ -188,11 +201,7 @@ class AudioAnalyzerApp:
             ax1.set_xlabel("Muestras")
             ax1.set_ylabel("Amplitud")
 
-            N = len(signal)
-            T = 1.0 / rate
-            yf = fft(signal)
-            xf = np.fft.fftfreq(N, T)[:N//2]
-            ax2.plot(xf, 2.0/N * np.abs(yf[0:N//2]))
+            ax2.plot(xf, yf)
             ax2.set_title("Transformada de Fourier")
             ax2.set_xlabel("Frecuencia (Hz)")
             ax2.set_ylabel("Amplitud")
@@ -203,56 +212,70 @@ class AudioAnalyzerApp:
             # Guarda el archivo ATM solo si el archivo no se grabó recientemente
             if not self.is_recently_recorded and self.loaded_file_path:
                 atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
+
+                # Genera los datos de la FFT
+                signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
+                yf = fft(signal)
+                xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
+                yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])
+
                 with open(atm_file_path, 'wb') as af:
-                    # Guardar el audio original
                     af.write(struct.pack('I', len(signal)))
                     af.write(signal.tobytes())
-                    
-                    # Guardar los datos de la FFT
                     af.write(struct.pack('I', len(xf)))
                     af.write(xf.tobytes())
-                    af.write(yf[:len(signal)//2].tobytes())
+                    af.write(yf.tobytes())
 
-                messagebox.showinfo("Guardado", f"Archivo ATM creado como {atm_file_path}")
-        else:
-            messagebox.showerror("Error", "No se encontró el archivo de grabación.")
-
-    def load_wave_file(self, file_path):
+    def load_signal_and_fft(self, file_path):
         with wave.open(file_path, 'rb') as wf:
-            frames = wf.readframes(wf.getnframes())
-            signal = np.frombuffer(frames, dtype=np.int16)
-            rate = wf.getframerate()
-            return signal, rate
+            signal = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+        
+        N = len(signal)
+        T = 1.0 / self.rate
+        
+        # Calculamos la FFT
+        yf = fft(signal)
+        
+        # Aseguramos que xf y yf tengan la misma longitud
+        xf = np.fft.fftfreq(N, T)[:N//2]  # Tomamos solo la mitad positiva de las frecuencias
+        yf = 2.0/N * np.abs(yf[0:N//2])  # Tomamos solo la mitad positiva del espectro
+        
+        return signal, xf, yf
 
     def load_wav_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
         if file_path:
             self.loaded_file_path = file_path
-            self.last_file_path = file_path
-            self.is_recently_recorded = False 
+            self.is_recently_recorded = False  # Resetear bandera
+            signal, xf, yf = self.load_signal_and_fft(file_path)
+
+            plt.close('all')
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+            ax1.plot(np.arange(len(signal)), signal)
+            ax1.set_title("Señal en el dominio del tiempo")
+            ax1.set_xlabel("Muestras")
+            ax1.set_ylabel("Amplitud")
+
+            ax2.plot(xf, yf)
+            ax2.set_title("Transformada de Fourier")
+            ax2.set_xlabel("Frecuencia (Hz)")
+            ax2.set_ylabel("Amplitud")
+
+            fig.tight_layout()
+            plt.show()
+
+            # Activar botón de graficar
             self.plot_button.config(state=tk.NORMAL)
-            messagebox.showinfo("Archivo cargado", f"Archivo {file_path} cargado exitosamente.")
 
-    def update_buttons(self, recording):
-        if recording:
-            self.start_button.config(state=tk.DISABLED)
-            self.stop_button.config(state=tk.NORMAL)
-            self.continue_button.config(state=tk.DISABLED)
-            self.save_button.config(state=tk.DISABLED)
-        else:
-            self.start_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
-            self.continue_button.config(state=tk.NORMAL)
-            self.save_button.config(state=tk.NORMAL)
-
-    def on_closing(self):
-        if self.is_recording:
-            self.is_recording = False
-        self.audio.terminate()
-        self.root.destroy()
+    def update_buttons(self, recording=False, saved=False):
+        self.start_button.config(state=tk.DISABLED if recording else tk.NORMAL)
+        self.stop_button.config(state=tk.NORMAL if recording else tk.DISABLED)
+        self.continue_button.config(state=tk.DISABLED if recording else tk.NORMAL)
+        self.save_button.config(state=tk.NORMAL if not recording and self.frames else tk.DISABLED)
+        self.plot_button.config(state=tk.NORMAL if not recording and saved and self.frames else tk.DISABLED)
+        self.load_button.config(state=tk.DISABLED if recording else tk.NORMAL)
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = AudioAnalyzerApp(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
