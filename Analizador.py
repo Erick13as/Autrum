@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft
 import struct
+from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
 
 class AudioAnalyzerApp:
     def __init__(self, root):
@@ -31,20 +32,40 @@ class AudioAnalyzerApp:
         self.chunk = 1024
         self.recording_duration = 5  # Duración en segundos para actualizar el gráfico
 
-        # Elementos de la interfaz gráfica
-        self.start_button = tk.Button(root, text="Iniciar Grabación", command=self.start_recording)
-        self.stop_button = tk.Button(root, text="Parar Grabación", command=self.stop_recording, state=tk.DISABLED)
-        self.continue_button = tk.Button(root, text="Continuar Grabación", command=self.continue_recording, state=tk.DISABLED)
-        self.save_button = tk.Button(root, text="Guardar Grabación", command=self.save_recording, state=tk.DISABLED)
-        self.plot_button = tk.Button(root, text="Graficar Señal", command=self.plot_last_recording, state=tk.DISABLED)
-        self.load_button = tk.Button(root, text="Cargar Archivo WAV", command=self.load_wav_file)
+        # Cargar y redimensionar la imagen de fondo
+        self.original_image = Image.open("BackgroundImage.jpg")
+        self.resized_image = self.original_image.resize((800, 400), Image.Resampling.LANCZOS)
+        self.background_image = ImageTk.PhotoImage(self.resized_image)
+        self.background_label = tk.Label(root, image=self.background_image)
+        self.background_label.place(relwidth=1, relheight=1)
 
-        self.start_button.pack(pady=10)
-        self.stop_button.pack(pady=10)
-        self.continue_button.pack(pady=10)
-        self.save_button.pack(pady=10)
-        self.plot_button.pack(pady=10)
-        self.load_button.pack(pady=10)
+        # Estilo de los botones
+        self.button_style = {
+            "font": ("Helvetica", 12, "bold"),
+            "bg": "#333333",
+            "fg": "white",
+            "activebackground": "#555555",
+            "activeforeground": "white",
+            "bd": 0,
+            "highlightthickness": 0,
+            "relief": "flat"
+        }
+
+        # Elementos de la interfaz gráfica
+        self.start_button = tk.Button(root, text="Iniciar Grabación", command=self.start_recording, **self.button_style)
+        self.stop_button = tk.Button(root, text="Parar Grabación", command=self.stop_recording, state=tk.DISABLED, **self.button_style)
+        self.continue_button = tk.Button(root, text="Continuar Grabación", command=self.continue_recording, state=tk.DISABLED, **self.button_style)
+        self.save_button = tk.Button(root, text="Guardar Grabación", command=self.save_recording, state=tk.DISABLED, **self.button_style)
+        self.plot_button = tk.Button(root, text="Graficar Señal", command=self.plot_last_recording, state=tk.DISABLED, **self.button_style)
+        self.load_button = tk.Button(root, text="Cargar Archivo WAV", command=self.load_wav_file, **self.button_style)
+
+        # Centrar los botones
+        self.start_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
+        self.stop_button.place(relx=0.5, rely=0.2, anchor=tk.CENTER)
+        self.continue_button.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+        self.save_button.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+        self.plot_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.load_button.place(relx=0.5, rely=0.6, anchor=tk.CENTER)
 
         # Inicializar la figura de Matplotlib
         self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
