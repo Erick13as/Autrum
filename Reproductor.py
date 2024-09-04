@@ -1,11 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
-import pyaudio
 import sounddevice as sd
 import time
-import wave
-import threading
-import os
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,7 +76,6 @@ class AudioPlayer:
         self.pause = False
         self.update_buttons(playing=True)
         plt.close('all')
-        print("play", self.position, " ", len(self.signal))
         # Reproduce el audio desde la posición actual
         sd.play(self.signal[self.position:], self.rate)
         self.plot_audio()
@@ -92,11 +87,8 @@ class AudioPlayer:
             stream = sd.get_stream()
             if stream and stream.active:
                 tempo = time.time()
-                elapsed_time = time.time() - self.start_time #sd.get_stream().time
-                print("Elapsed = ", elapsed_time)
-                print("Resta = ", time.time() - tempo)
+                elapsed_time = time.time() - self.start_time 
                 self.position += int(elapsed_time * self.rate)
-                print("Pausa",self.position," ", len(self.signal))
                 sd.stop()
 
     def resume_audio(self):
@@ -108,6 +100,11 @@ class AudioPlayer:
 
     def cancel_audio(self):
         self.cancel = True
+        plt.close('all')
+        stream = sd.get_stream()
+        if stream and stream.active:
+            sd.stop()
+        self.update_buttons()
     
     def load_atm_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("ATM files", "*.atm")])
