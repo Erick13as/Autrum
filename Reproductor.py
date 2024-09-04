@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 import pyaudio
 import sounddevice as sd
+import time
 import wave
 import threading
 import os
@@ -26,6 +27,7 @@ class AudioPlayer:
         self.pause = False
         self.open_file = False
         self.cancel = False
+        self.start_time = 0
 
         # Cargar y redimensionar la imagen de fondo
         self.original_image = Image.open("BackgroundImage.jpg")
@@ -74,12 +76,14 @@ class AudioPlayer:
         plt.show()
 
     def play_audio(self):
+        self.start_time = time.time()
         self.pause = False
         self.update_buttons(playing=True)
+        plt.close('all')
         print("play", self.position, " ", len(self.signal))
-        self.plot_audio()
         # Reproduce el audio desde la posición actual
         sd.play(self.signal[self.position:], self.rate)
+        self.plot_audio()
 
     def pause_audio(self):
         if not self.pause:
@@ -87,14 +91,19 @@ class AudioPlayer:
             self.update_buttons()
             stream = sd.get_stream()
             if stream and stream.active:
-                elapsed_time = sd.get_stream().time
+                tempo = time.time()
+                elapsed_time = time.time() - self.start_time #sd.get_stream().time
+                print("Elapsed = ", elapsed_time)
+                print("Resta = ", time.time() - tempo)
                 self.position += int(elapsed_time * self.rate)
                 print("Pausa",self.position," ", len(self.signal))
-            sd.stop()
+                sd.stop()
 
     def resume_audio(self):
         if self.pause:
-            self.play_audio()
+            self.start_time = time.time()
+            self.pause = False
+            sd.play(self.signal[self.position:], self.rate)
             self.update_buttons(playing=True)
 
     def cancel_audio(self):
