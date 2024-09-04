@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft
 import struct
+import os
 from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
 
 class AudioPlayer:
@@ -24,6 +25,7 @@ class AudioPlayer:
         self.open_file = False
         self.cancel = False
         self.start_time = 0
+        self.file_name = ""
 
         # Cargar y redimensionar la imagen de fondo
         self.original_image = Image.open("BackgroundImage.jpg")
@@ -35,7 +37,7 @@ class AudioPlayer:
         # Estilo de los botones
         self.button_style = {
             "font": ("Helvetica", 12, "bold"),
-            "bg": "#1E90FF",
+            "bg": "#204054",
             "fg": "white",
             "activebackground": "#104E8B",
             "activeforeground": "#F0F0F0",
@@ -57,6 +59,15 @@ class AudioPlayer:
         self.stop_button.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
         self.resume_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.cancel_button.place(relx=0.5, rely=0.6, anchor=tk.CENTER)
+
+        self.label_style = {
+            "font": ("Helvetica", 12, "bold"),
+            "bg": "#204054",
+            "fg": "white",
+        }
+
+        self.label = tk.Label(root, text="", **self.label_style)
+        self.label.place(relx=0.5, rely=0.8, anchor=tk.CENTER)
     
     def plot_audio(self):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
@@ -76,6 +87,7 @@ class AudioPlayer:
         self.pause = False
         self.update_buttons(playing=True)
         plt.close('all')
+        self.label.config(text="Reproduciendo Audio...")
         # Reproduce el audio desde la posición actual
         sd.play(self.signal[self.position:], self.rate)
         self.plot_audio()
@@ -90,6 +102,7 @@ class AudioPlayer:
                 elapsed_time = time.time() - self.start_time 
                 self.position += int(elapsed_time * self.rate)
                 sd.stop()
+                self.label.config(text="Audio Pausado")
 
     def resume_audio(self):
         if self.pause:
@@ -97,6 +110,7 @@ class AudioPlayer:
             self.pause = False
             sd.play(self.signal[self.position:], self.rate)
             self.update_buttons(playing=True)
+            self.label.config(text="Reproduciendo Audio...")
 
     def cancel_audio(self):
         self.cancel = True
@@ -104,10 +118,17 @@ class AudioPlayer:
         stream = sd.get_stream()
         if stream and stream.active:
             sd.stop()
-        self.update_buttons()
+        self.update_buttons(playing=False)
+        self.start_button.config(state=tk.NORMAL)
+        self.resume_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.DISABLED)
+        self.cancel_button.config(state=tk.DISABLED)
+        self.position = 0
+        self.label.config(text="")
     
     def load_atm_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("ATM files", "*.atm")])
+        self.file_name = os.path.basename(file_path)
         if file_path:
             with open(file_path, 'rb') as af:
                 # Leer la longitud de la señal de audio
@@ -122,6 +143,8 @@ class AudioPlayer:
                 self.yf = np.frombuffer(af.read(fft_len * 8), dtype=np.float64)
             self.open_file = True
             self.update_buttons(open_file=True)
+            self.position = 0
+            self.label.config(text="Se cargó el archivo " + self.file_name)
 
     def update_buttons(self, open_file=False,playing=False):
         self.load_button.config(state=tk.DISABLED if open_file else tk.NORMAL)
