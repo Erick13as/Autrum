@@ -9,13 +9,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft
 import struct
-from PIL import Image, ImageTk  
+from PIL import Image, ImageTk
 
 class AudioAnalyzerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Autrum - Analizador de Audio")
         self.root.geometry("800x400")
+
+        # Binds the main window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.is_recording = False
         self.frames = []
@@ -90,6 +93,10 @@ class AudioAnalyzerApp:
         # Configure periodic update
         self.update_interval = 50  # in milliseconds
         self.update_graph_periodically()
+
+    def on_closing(self):
+        plt.close('all')  # Close all open charts
+        self.root.destroy()  # Close the main window
 
     def start_recording(self):
         self.is_recording = True
