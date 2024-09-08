@@ -1,13 +1,30 @@
 # Autrum
- 
-python -m pip install PyAudio
+## Instalación
 
-python -m pip install --upgrade scipy
+    winget install julia -s msstore
+    Descargar MSYS2
+    Version de 64-bit:
+    pacman -S mingw-w64-ucrt-x86_64-gtk4
+    pacman -S mingw-w64-x86_64-glade
 
-python -m pip install soundfile librosa
+## Librerias externas
 
-# Para convertir de atm a wav
-python -m pip install pydub 
+    add Gtk
 
-python -m pip install sounddevice
+## Probar programa primera vez
 
+    julia
+    ]
+    activate .
+    instantiate
+    Presionar backspace
+    include("Autrum.jl")
+
+## Probar programa
+
+    julia
+    include("Autrum.jl")
+
+## Cerrar julia
+
+    exit()
