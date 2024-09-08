@@ -215,10 +215,43 @@ class AudioAnalyzerApp:
             self.update_buttons(saved=True)
             messagebox.showinfo("Guardado", f"Grabación guardada como {wav_file_path} y {atm_file_path}")
 
+    def load_wav_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
+        if file_path:
+            self.loaded_file_path = file_path
+            self.is_recently_recorded = False
+            
+            # Load signal from .wav file
+            with wave.open(file_path, 'rb') as wf:
+                self.frames = []  # Limpiar frames
+                self.frames.append(wf.readframes(wf.getnframes()))  # Load the frames into self.frames
+
+            signal, xf, yf = self.load_signal_and_fft(file_path)
+
+            # Plot the signal
+            plt.close('all')
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+            ax1.plot(np.arange(len(signal)), signal)
+            ax1.set_title("Señal en el dominio del tiempo")
+            ax1.set_xlabel("Muestras")
+            ax1.set_ylabel("Amplitud")
+
+            ax2.plot(xf, yf)
+            ax2.set_title("Transformada de Fourier")
+            ax2.set_xlabel("Frecuencia (Hz)")
+            ax2.set_ylabel("Amplitud")
+
+            fig.tight_layout()
+            plt.show()
+
+            # Activate button to graph the signal
+            self.plot_button.config(state=tk.NORMAL)
+
     def plot_last_recording(self):
-        # Closes any existing chart window
+        # Closes existing chart windows
         plt.close('all')
 
+        # If there is a recent recording
         if self.last_file_path and os.path.exists(self.last_file_path):
             signal, xf, yf = self.load_signal_and_fft(self.last_file_path)
 
@@ -236,22 +269,46 @@ class AudioAnalyzerApp:
             fig.tight_layout()
             plt.show()
 
-            # Save the ATM file only if the file was not saved recently
-            if not self.is_recently_recorded and self.loaded_file_path:
-                atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
+        elif self.loaded_file_path and not self.is_recently_recorded:
+            atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
 
-                # Generates the FFT data
-                signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
-                yf = fft(signal)
-                xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
-                yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])
+            # Check if the .atm file already exists
+            if not os.path.exists(atm_file_path):
+                if self.frames:  
+                    signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
+                    yf = fft(signal)
+                    xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
+                    yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])
 
-                with open(atm_file_path, 'wb') as af:
-                    af.write(struct.pack('I', len(signal)))
-                    af.write(signal.tobytes())
-                    af.write(struct.pack('I', len(xf)))
-                    af.write(xf.tobytes())
-                    af.write(yf.tobytes())
+                    with open(atm_file_path, 'wb') as af:
+                        af.write(struct.pack('I', len(signal)))
+                        af.write(signal.tobytes())
+                        af.write(struct.pack('I', len(xf)))
+                        af.write(xf.tobytes())
+                        af.write(yf.tobytes())
+                else:
+                    messagebox.showwarning("Advertencia", "No hay datos suficientes para crear el archivo .atm.")
+
+            # Load and graph the signal from the loaded file
+            signal, xf, yf = self.load_signal_and_fft(self.loaded_file_path)
+
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+            ax1.plot(np.arange(len(signal)), signal)
+            ax1.set_title("Señal en el dominio del tiempo")
+            ax1.set_xlabel("Muestras")
+            ax1.set_ylabel("Amplitud")
+
+            ax2.plot(xf, yf)
+            ax2.set_title("Transformada de Fourier")
+            ax2.set_xlabel("Frecuencia (Hz)")
+            ax2.set_ylabel("Amplitud")
+
+            fig.tight_layout()
+            plt.show()
+
+        else:
+            messagebox.showwarning("Advertencia", "No se ha cargado ningún archivo o no hay grabación reciente.")
+
 
     def load_signal_and_fft(self, file_path):
         with wave.open(file_path, 'rb') as wf:
@@ -267,31 +324,6 @@ class AudioAnalyzerApp:
         yf = 2.0/N * np.abs(yf[0:N//2])  # Positive half of the spectrum
         
         return signal, xf, yf
-
-    def load_wav_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
-        if file_path:
-            self.loaded_file_path = file_path
-            self.is_recently_recorded = False  # Reset flag
-            signal, xf, yf = self.load_signal_and_fft(file_path)
-
-            plt.close('all')
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
-            ax1.plot(np.arange(len(signal)), signal)
-            ax1.set_title("Señal en el dominio del tiempo")
-            ax1.set_xlabel("Muestras")
-            ax1.set_ylabel("Amplitud")
-
-            ax2.plot(xf, yf)
-            ax2.set_title("Transformada de Fourier")
-            ax2.set_xlabel("Frecuencia (Hz)")
-            ax2.set_ylabel("Amplitud")
-
-            fig.tight_layout()
-            plt.show()
-
-            # Activate graph button
-            self.plot_button.config(state=tk.NORMAL)
 
     def update_buttons(self, recording=False, saved=False):
         self.start_button.config(state=tk.DISABLED if recording else tk.NORMAL)
