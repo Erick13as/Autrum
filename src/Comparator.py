@@ -66,8 +66,7 @@ class AudioComparator:
         self.is_original_audio_loaded = False
         self.is_audio_to_compare_recorded = False
         self.rate = 44100
-        self.file_path = None
-        self.recorded_audio_path = "recorded.wav"
+        self.audio_to_compare_path = "temp.wav"
         self.original_audio = None
         self.audio_offset = 0
         self.is_recording = False  # Variable para controlar el estado de grabación
@@ -128,12 +127,14 @@ class AudioComparator:
         self.audio.terminate()
 
         # Guardar la grabación en un archivo WAV
-        wf = wave.open(self.recorded_audio_path, 'wb')
+        wf = wave.open(self.audio_to_compare_path, 'wb')
         wf.setnchannels(1)
         wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
         wf.setframerate(44100)
         wf.writeframes(b''.join(self.frames))
         wf.close()
+
+        self.is_audio_to_compare_recorded = True
 
         messagebox.showinfo("Éxito", "Grabación finalizada.")
 
@@ -165,62 +166,74 @@ class AudioComparator:
             messagebox.showerror("Error", f"Error al graficar el audio: {str(e)}")
 
     def compare_audio(self):
-        if not self.file_path or not self.recorded_audio_path:
-            messagebox.showerror("Error", "Debe cargar el archivo ATM y grabar la palabra primero.")
+        if not self.is_original_audio_loaded:
+            messagebox.showerror("Error", "Debe cargar el archivo ATM.")
+            return
+        if not self.is_audio_to_compare_recorded:
+            messagebox.showerror("Error", "Debe grabar una palabra o frase para comparar.")
             return
         
         try:
-            # Load audios
-            recorded_audio, _ = sf.read(self.recorded_audio_path)
-            atm_audio, _ = sf.read(self.audio_data)
+            audio_to_compare, _ = sf.read(self.audio_to_compare_path) # Load audio to compare
 
-            # Mono data
-            if len(recorded_audio.shape) > 1:
-                recorded_audio = recorded_audio[:, 0]
-            if len(atm_audio.shape) > 1:
-                atm_audio = atm_audio[:, 0]
+            # Convert to mono data if necessary
+            if len(audio_to_compare.shape) > 1:
+                audio_to_compare = audio_to_compare[:, 0]
+            if len(self.original_audio.shape) > 1:
+                self.original_audio = self.original_audio[:, 0]
 
-            chunk_size = len(recorded_audio)
+            # Calculate chunks
+            chunk_size = len(audio_to_compare)
             overlap = chunk_size // 2
+            num_chunks = (len(self.original_audio) - chunk_size) // (chunk_size - overlap) + 1
 
-            num_chunks = (len(atm_audio) - chunk_size) // (chunk_size - overlap) + 1
+            def compute_fft(signal):
+                signal_fft = fft(signal)
+                signal_magnitude = np.abs(signal_fft)
+                return signal_magnitude
+            
+            def compute_power_spectra(signal_magnitude):
+                signal_power = signal_magnitude ** 2 # Get power spectra
+                signal_power /= np.sum(signal_power) # Normalize power spectra
+                return signal_power
 
-            recorded_audio_fft = fft(recorded_audio)
-            recorded_audio_magnitude = np.abs(recorded_audio_fft)
+            audio_to_compare_magnitude = compute_fft(audio_to_compare)
+            audio_to_compare_power = compute_power_spectra(audio_to_compare_magnitude)
+
+            def calculate_euclidean_distance(value_01, value_02):
+                return np.sqrt(np.sum((value_01 - value_02) ** 2))
+            
+            comparisons = {}
 
             for i in range(num_chunks):
                 start = i * (chunk_size - overlap)
                 end = start + chunk_size
-                chunk = atm_audio[start:end]
+                chunk = self.original_audio[start:end]
 
-                chunk_fft = fft(chunk)
-                chunk_magnitude = np.abs(chunk_fft)
+                chunk_magnitude = compute_fft(chunk)
+                chunk_power = compute_power_spectra(chunk_magnitude)
 
-                distance = np.sqrt(np.sum((chunk_magnitude - recorded_audio_magnitude) ** 2))
-                print(distance)
-            
-            # if len(recorded_audio) > len(atm_audio):
-            #     recorded_audio = recorded_audio[:len(atm_audio)]  # Ajustar longitud
-            # elif len(atm_audio) > len(recorded_audio):
-            #     atm_audio = atm_audio[:len(recorded_audio)]  # Ajustar longitud
+                fft_distance = calculate_euclidean_distance(chunk_magnitude, audio_to_compare_magnitude)
+                power_distance = calculate_euclidean_distance(chunk_power, audio_to_compare_power)
 
-            # correlation, offset = self.calculate_correlation(atm_audio, recorded_audio)
+                values = {
+                    "start": start,
+                    "fft_distance": fft_distance,
+                    "power_distance": power_distance
+                }
 
-            # confidence = min(max(correlation * 100, 0), 100)
-            # messagebox.showinfo("Resultado", f"Confianza de coincidencia: {confidence:.2f}%")
+                comparisons[i] = values
 
-            self.audio_offset = 0
-            # Descomentar si quieres graficar los audios después de la comparación
-            # self.plot_audio(self.audio_data, title="Audio ATM")
-            # self.plot_audio(self.recorded_audio_path, title="Audio Grabado")
+            sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["fft_distance"], x[1]["power_distance"]), reverse=True)
+
+            _, values = sorted_comparisons[0] # Get first dict item
+
+            self.audio_offset = values["start"]
+            print("Offset", values["start"])
+            print("FFT Distance", values["fft_distance"])
+            print("Power Distance", values["power_distance"])
         except Exception as e:
             messagebox.showerror("Error", f"Error al comparar audio: {str(e)}")
-
-    def calculate_correlation(self, audio1, audio2):
-        correlation = correlate(audio2, audio1, mode='valid')
-        max_corr = correlation.max() if len(correlation) > 0 else 0
-        offset = np.argmax(correlation) if len(correlation) > 0 else 0
-        return max_corr, offset
 
     def play_audio(self):
         if not self.is_original_audio_loaded:
@@ -228,11 +241,12 @@ class AudioComparator:
             return
         
         try:
-            sd.play(self.original_audio[self.audio_offset:], self.rate)        
+            sd.play(self.original_audio[self.audio_offset:], self.rate)
         except Exception as e:
             messagebox.showerror("Error", f"Error al reproducir el audio: {str(e)}")
 
 if __name__ == "__main__":
+
     root = tk.Tk()
     app = AudioComparator(root)
     root.mainloop()
