@@ -11,6 +11,9 @@ from scipy.signal import correlate
 from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
 import struct
 import os
+import noisereduce as nr
+import librosa
+import librosa.display
 
 class AudioComparator:
     def __init__(self, root):
@@ -134,9 +137,41 @@ class AudioComparator:
         wf.writeframes(b''.join(self.frames))
         wf.close()
 
+        # Apply noise reduction
+        self.reduce_noise(self.audio_to_compare_path)
+
+        # Remove all reduced sound
+        self.remove_silence(self.audio_to_compare_path)
+
         self.is_audio_to_compare_recorded = True
 
         messagebox.showinfo("Éxito", "Grabación finalizada.")
+
+    def reduce_noise(self, file_path):
+        # Read recorded file
+        audio_data, sample_rate = sf.read(file_path)
+
+        # Apply noise reduction
+        reduced_noise = nr.reduce_noise(y=audio_data, sr=sample_rate)
+
+        # Save processed audio without background noise
+        sf.write(file_path, reduced_noise, sample_rate)
+        messagebox.showinfo("Éxito", "Reducción de ruido aplicada correctamente.")
+        
+    def remove_silence(self, file_path):
+        # Load audio without background noise
+        audio_data, sample_rate = librosa.load(file_path, sr=None)
+
+        # Detect intervals in which there is relevant speech or sound
+        non_silent_intervals = librosa.effects.split(audio_data, top_db=40)  # Umbral de dB ajustable
+
+        # Combine only the non-silent parts
+        non_silent_audio = np.concatenate([audio_data[start:end] for start, end in non_silent_intervals])
+
+        # Save audio without silence
+        sf.write(file_path, non_silent_audio, sample_rate)
+
+        messagebox.showinfo("Éxito", "Silencios eliminados correctamente.")
 
     def plot_audio(self, file_path, title):
         try:
