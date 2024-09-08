@@ -42,10 +42,10 @@ class AudioAnalyzerApp:
         # Button style
         self.button_style = {
             "font": ("Helvetica", 12, "bold"),
-            "bg": "#333333",
+            "bg": "#204054",
             "fg": "white",
-            "activebackground": "#555555",
-            "activeforeground": "white",
+            "activebackground": "#104E8B",
+            "activeforeground": "#F0F0F0",
             "bd": 0,
             "highlightthickness": 0,
             "relief": "flat"
