@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft
 import struct
-from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
+from PIL import Image, ImageTk  
 
 class AudioAnalyzerApp:
     def __init__(self, root):
@@ -24,22 +24,22 @@ class AudioAnalyzerApp:
         self.loaded_file_path = None  
         self.is_recently_recorded = False  
 
-        # Configuración del micrófono
+        # Microphone Settings
         self.audio = pyaudio.PyAudio()
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 44100
         self.chunk = 1024
-        self.recording_duration = 5  # Duración en segundos para actualizar el gráfico
+        self.recording_duration = 5  # Duration in seconds to update the graph
 
-        # Cargar y redimensionar la imagen de fondo
+        # Upload and resize background image
         self.original_image = Image.open("BackgroundImage.jpg")
         self.resized_image = self.original_image.resize((800, 400), Image.Resampling.LANCZOS)
         self.background_image = ImageTk.PhotoImage(self.resized_image)
         self.background_label = tk.Label(root, image=self.background_image)
         self.background_label.place(relwidth=1, relheight=1)
 
-        # Estilo de los botones
+        # Button style
         self.button_style = {
             "font": ("Helvetica", 12, "bold"),
             "bg": "#333333",
@@ -51,7 +51,7 @@ class AudioAnalyzerApp:
             "relief": "flat"
         }
 
-        # Elementos de la interfaz gráfica
+        # UI elements
         self.start_button = tk.Button(root, text="Iniciar Grabación", command=self.start_recording, **self.button_style)
         self.stop_button = tk.Button(root, text="Parar Grabación", command=self.stop_recording, state=tk.DISABLED, **self.button_style)
         self.continue_button = tk.Button(root, text="Continuar Grabación", command=self.continue_recording, state=tk.DISABLED, **self.button_style)
@@ -59,7 +59,7 @@ class AudioAnalyzerApp:
         self.plot_button = tk.Button(root, text="Graficar Señal", command=self.plot_last_recording, state=tk.DISABLED, **self.button_style)
         self.load_button = tk.Button(root, text="Cargar Archivo WAV", command=self.load_wav_file, **self.button_style)
 
-        # Centrar los botones
+        # Center the buttons
         self.start_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
         self.stop_button.place(relx=0.5, rely=0.2, anchor=tk.CENTER)
         self.continue_button.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
@@ -67,7 +67,7 @@ class AudioAnalyzerApp:
         self.plot_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.load_button.place(relx=0.5, rely=0.6, anchor=tk.CENTER)
 
-        # Inicializar la figura de Matplotlib
+        # Initialize Matplotlib figure
         self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
         self.line1, = self.ax1.plot([], [])
         self.line2, = self.ax2.plot([], [])
@@ -87,15 +87,15 @@ class AudioAnalyzerApp:
         plt.ion()
         plt.show()
 
-        # Configurar la actualización periódica
-        self.update_interval = 50  # en milisegundos
+        # Configure periodic update
+        self.update_interval = 50  # in milliseconds
         self.update_graph_periodically()
 
     def start_recording(self):
         self.is_recording = True
         self.frames = []
 
-        # Cierra todas las ventanas de gráficos existentes y abre el gráfico en tiempo real
+        # Closes all existing chart windows and opens the real-time chart
         plt.close('all')
         self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 4))
         self.line1, = self.ax1.plot([], [])
@@ -144,7 +144,6 @@ class AudioAnalyzerApp:
                 self.frames.append(chunk_data)
             if data:
                 self.latest_data = b''.join(data)
-                # Usar after para actualizar el gráfico en el hilo principal con toda la señal
                 self.root.after(0, self.update_graph)
 
     def update_graph_periodically(self):
@@ -153,7 +152,7 @@ class AudioAnalyzerApp:
         self.root.after(self.update_interval, self.update_graph_periodically)
 
     def update_graph(self, data=None):
-        # Usar todos los frames acumulados si data es None
+        # Use all accumulated frames if data is None
         if data is None:
             data = b''.join(self.frames)
         signal = np.frombuffer(data, dtype=np.int16)
@@ -180,26 +179,26 @@ class AudioAnalyzerApp:
             wav_file_path = os.path.join('audio', f"{current_time}.wav")
             atm_file_path = os.path.join('audio', f"{current_time}.atm")
             
-            # Guardar archivo WAV
+            # Save WAV file
             with wave.open(wav_file_path, 'wb') as wf:
                 wf.setnchannels(self.channels)
                 wf.setsampwidth(self.audio.get_sample_size(self.format))
                 wf.setframerate(self.rate)
                 wf.writeframes(b''.join(self.frames))
                 
-            # Generar FFT de toda la señal grabada
+            # Generate FFT of the entire recorded signal
             signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
             yf = fft(signal)
             xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
-            yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])  # Aseguramos que yf tenga la misma longitud que xf
+            yf = 2.0/len(signal) * np.abs(yf[0:len(signal)//2])  
             
-            # Guardar archivo ATM
+            # Save ATM file
             with open(atm_file_path, 'wb') as af:
-                # Guardar el audio original
+                # Save the original audio
                 af.write(struct.pack('I', len(signal)))
                 af.write(signal.tobytes())
                 
-                # Guardar los datos de la FFT
+                # Saving FFT data
                 af.write(struct.pack('I', len(xf)))
                 af.write(xf.tobytes())
                 af.write(yf.tobytes())
@@ -210,7 +209,7 @@ class AudioAnalyzerApp:
             messagebox.showinfo("Guardado", f"Grabación guardada como {wav_file_path} y {atm_file_path}")
 
     def plot_last_recording(self):
-        # Cierra cualquier ventana de gráfico existente
+        # Closes any existing chart window
         plt.close('all')
 
         if self.last_file_path and os.path.exists(self.last_file_path):
@@ -230,11 +229,11 @@ class AudioAnalyzerApp:
             fig.tight_layout()
             plt.show()
 
-            # Guarda el archivo ATM solo si el archivo no se grabó recientemente
+            # Save the ATM file only if the file was not saved recently
             if not self.is_recently_recorded and self.loaded_file_path:
                 atm_file_path = self.loaded_file_path.replace('.wav', '.atm')
 
-                # Genera los datos de la FFT
+                # Generates the FFT data
                 signal = np.frombuffer(b''.join(self.frames), dtype=np.int16)
                 yf = fft(signal)
                 xf = np.fft.fftfreq(len(signal), 1.0/self.rate)[:len(signal)//2]
@@ -254,12 +253,11 @@ class AudioAnalyzerApp:
         N = len(signal)
         T = 1.0 / self.rate
         
-        # Calculamos la FFT
+        # We calculate the FFT
         yf = fft(signal)
         
-        # Aseguramos que xf y yf tengan la misma longitud
-        xf = np.fft.fftfreq(N, T)[:N//2]  # Tomamos solo la mitad positiva de las frecuencias
-        yf = 2.0/N * np.abs(yf[0:N//2])  # Tomamos solo la mitad positiva del espectro
+        xf = np.fft.fftfreq(N, T)[:N//2]  # Positive half of the frequencies
+        yf = 2.0/N * np.abs(yf[0:N//2])  # Positive half of the spectrum
         
         return signal, xf, yf
 
@@ -267,7 +265,7 @@ class AudioAnalyzerApp:
         file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
         if file_path:
             self.loaded_file_path = file_path
-            self.is_recently_recorded = False  # Resetear bandera
+            self.is_recently_recorded = False  # Reset flag
             signal, xf, yf = self.load_signal_and_fft(file_path)
 
             plt.close('all')
@@ -285,7 +283,7 @@ class AudioAnalyzerApp:
             fig.tight_layout()
             plt.show()
 
-            # Activar botón de graficar
+            # Activate graph button
             self.plot_button.config(state=tk.NORMAL)
 
     def update_buttons(self, recording=False, saved=False):
