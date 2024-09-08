@@ -40,7 +40,7 @@ class AudioComparator:
         self.load_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
 
         # Botón para grabar palabra
-        self.record_button = tk.Button(root, text="Grabar Palabra", command=self.record_audio, **self.button_style)
+        self.record_button = tk.Button(root, text="Grabar Palabra", command=self.toggle_recording, **self.button_style)
         self.record_button.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
 
         # Botón para comparar audio
@@ -65,6 +65,8 @@ class AudioComparator:
         self.recorded_audio_path = "recorded.wav"
         self.audio_data = None
         self.audio_offset = None
+        self.is_recording = False  # Variable para controlar el estado de grabación
+        self.stream = None  # Variable para manejar el flujo de grabación
         
     def load_atm(self):
         self.file_path = filedialog.askopenfilename(filetypes=[("ATM Files", "*.atm")])
@@ -104,42 +106,58 @@ class AudioComparator:
             return temp_wav_path
         except Exception as e:
             raise ValueError(f"Error al procesar el archivo ATM: {str(e)}")
-
-    def record_audio(self):
-        self.status_label.config(text="Estado: Grabando...")
-        self.root.update()
         
+    def toggle_recording(self):
+        if not self.is_recording:
+            self.start_recording()
+        else:
+            self.stop_recording()
+
+    def start_recording(self):
+        self.status_label.config(text="Estado: Grabando...")
+        self.record_button.config(text="Detener Grabación")
+        self.is_recording = True
+
+        # Configuración de PyAudio para grabación
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
         RATE = 44100
         CHUNK = 1024
-        RECORD_SECONDS = 5
-        
-        audio = pyaudio.PyAudio()
-        stream = audio.open(format=FORMAT, channels=CHANNELS,
-                            rate=RATE, input=True,
-                            frames_per_buffer=CHUNK)
-        frames = []
 
-        for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-            data = stream.read(CHUNK)
-            frames.append(data)
+        self.frames = []  # Almacena los frames de audio grabados
 
-        stream.stop_stream()
-        stream.close()
-        audio.terminate()
+        self.audio = pyaudio.PyAudio()
+        self.stream = self.audio.open(format=FORMAT, channels=CHANNELS,
+                                      rate=RATE, input=True,
+                                      frames_per_buffer=CHUNK)
 
-        wf = wave.open(self.recorded_audio_path, 'wb')
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(audio.get_sample_size(FORMAT))
-        wf.setframerate(RATE)
-        wf.writeframes(b''.join(frames))
-        wf.close()
-        
+        # Graba en un bucle hasta que se detenga la grabación
+        self.record_audio_loop()
+
+    def record_audio_loop(self):
+        if self.is_recording:
+            data = self.stream.read(1024)
+            self.frames.append(data)
+            self.root.after(1, self.record_audio_loop)  # Llamada recursiva para continuar grabando
+
+    def stop_recording(self):
         self.status_label.config(text="Estado: Listo")
-        messagebox.showinfo("Éxito", "Grabación de palabra finalizada.")
-        # Descomentar si quieres graficar el audio
-        # self.plot_audio(self.recorded_audio_path, title="Audio Grabado")
+        self.record_button.config(text="Grabar Palabra")
+        self.is_recording = False
+
+        self.stream.stop_stream()
+        self.stream.close()
+        self.audio.terminate()
+
+        # Guardar la grabación en un archivo WAV
+        wf = wave.open(self.recorded_audio_path, 'wb')
+        wf.setnchannels(1)
+        wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(44100)
+        wf.writeframes(b''.join(self.frames))
+        wf.close()
+
+        messagebox.showinfo("Éxito", "Grabación finalizada.")
 
     def plot_audio(self, file_path, title):
         try:
