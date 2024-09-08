@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from scipy.fft import fft, fftfreq
 from scipy.signal import correlate
 from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
+import struct
+import os
 
 class AudioComparator:
     def __init__(self, root):
@@ -36,7 +38,7 @@ class AudioComparator:
         }
 
         # Botón para cargar archivo ATM
-        self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm, **self.button_style)
+        self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm_file, **self.button_style)
         self.load_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
 
         # Botón para grabar palabra
@@ -61,51 +63,27 @@ class AudioComparator:
         self.status_label.place(relx=0.5, rely=0.8, anchor=tk.CENTER)
 
         # Inicialización de variables
+        self.is_original_audio_loaded = False
+        self.is_audio_to_compare_recorded = False
+        self.rate = 44100
         self.file_path = None
         self.recorded_audio_path = "recorded.wav"
-        self.audio_data = None
-        self.audio_offset = None
+        self.original_audio = None
+        self.audio_offset = 0
         self.is_recording = False  # Variable para controlar el estado de grabación
         self.stream = None  # Variable para manejar el flujo de grabación
-        
-    def load_atm(self):
-        self.file_path = filedialog.askopenfilename(filetypes=[("ATM Files", "*.atm")])
-        if self.file_path:
-            try:
-                # Cargar y procesar archivo ATM
-                self.audio_data = self.load_and_process_atm(self.file_path)
-                messagebox.showinfo("Éxito", "Archivo ATM cargado exitosamente.")
-                # Descomentar si quieres graficar el audio
-                # self.plot_audio(self.audio_data, title="Audio ATM")
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al cargar el archivo ATM: {str(e)}")
 
-    def load_and_process_atm(self, file_path):
-        try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
-            
-            audio_data = np.frombuffer(raw_data, dtype=np.int16)
-            
-            # Verifica que audio_data no esté vacío
-            if len(audio_data) == 0:
-                raise ValueError("Los datos de audio están vacíos.")
-            
-            temp_wav_path = "temp_audio.wav"
-            sample_rate = 44100
-            
-            # Normalizar el audio_data para evitar problemas
-            audio_data = np.int16(audio_data / np.max(np.abs(audio_data)) * 32767)
-            
-            # Asegúrate de que audio_data sea un array 1D si se requiere
-            if len(audio_data.shape) > 1:
-                audio_data = audio_data[:, 0]
-            
-            sf.write(temp_wav_path, audio_data, sample_rate)
-            
-            return temp_wav_path
-        except Exception as e:
-            raise ValueError(f"Error al procesar el archivo ATM: {str(e)}")
+    def load_atm_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("ATM files", "*.atm")])
+        self.file_name = os.path.basename(file_path)
+        if file_path:
+            with open(file_path, 'rb') as af:
+                audio_len = struct.unpack('I', af.read(4))[0]            
+                self.original_audio = np.frombuffer(af.read(audio_len * 2), dtype=np.int16)  # Cada muestra es un int16
+
+                self.is_original_audio_loaded = True
+
+                messagebox.showinfo("Éxito", "Archivo ATM cargado exitosamente.")
         
     def toggle_recording(self):
         if not self.is_recording:
@@ -192,20 +170,46 @@ class AudioComparator:
             return
         
         try:
+            # Load audios
             recorded_audio, _ = sf.read(self.recorded_audio_path)
             atm_audio, _ = sf.read(self.audio_data)
 
-            if len(recorded_audio) > len(atm_audio):
-                recorded_audio = recorded_audio[:len(atm_audio)]  # Ajustar longitud
-            elif len(atm_audio) > len(recorded_audio):
-                atm_audio = atm_audio[:len(recorded_audio)]  # Ajustar longitud
+            # Mono data
+            if len(recorded_audio.shape) > 1:
+                recorded_audio = recorded_audio[:, 0]
+            if len(atm_audio.shape) > 1:
+                atm_audio = atm_audio[:, 0]
 
-            correlation, offset = self.calculate_correlation(atm_audio, recorded_audio)
+            chunk_size = len(recorded_audio)
+            overlap = chunk_size // 2
 
-            confidence = min(max(correlation * 100, 0), 100)
-            messagebox.showinfo("Resultado", f"Confianza de coincidencia: {confidence:.2f}%")
+            num_chunks = (len(atm_audio) - chunk_size) // (chunk_size - overlap) + 1
 
-            self.audio_offset = offset
+            recorded_audio_fft = fft(recorded_audio)
+            recorded_audio_magnitude = np.abs(recorded_audio_fft)
+
+            for i in range(num_chunks):
+                start = i * (chunk_size - overlap)
+                end = start + chunk_size
+                chunk = atm_audio[start:end]
+
+                chunk_fft = fft(chunk)
+                chunk_magnitude = np.abs(chunk_fft)
+
+                distance = np.sqrt(np.sum((chunk_magnitude - recorded_audio_magnitude) ** 2))
+                print(distance)
+            
+            # if len(recorded_audio) > len(atm_audio):
+            #     recorded_audio = recorded_audio[:len(atm_audio)]  # Ajustar longitud
+            # elif len(atm_audio) > len(recorded_audio):
+            #     atm_audio = atm_audio[:len(recorded_audio)]  # Ajustar longitud
+
+            # correlation, offset = self.calculate_correlation(atm_audio, recorded_audio)
+
+            # confidence = min(max(correlation * 100, 0), 100)
+            # messagebox.showinfo("Resultado", f"Confianza de coincidencia: {confidence:.2f}%")
+
+            self.audio_offset = 0
             # Descomentar si quieres graficar los audios después de la comparación
             # self.plot_audio(self.audio_data, title="Audio ATM")
             # self.plot_audio(self.recorded_audio_path, title="Audio Grabado")
@@ -219,20 +223,12 @@ class AudioComparator:
         return max_corr, offset
 
     def play_audio(self):
-        if not self.file_path:
+        if not self.is_original_audio_loaded:
             messagebox.showerror("Error", "Debe cargar el archivo ATM primero.")
             return
         
         try:
-            if self.audio_offset is not None:
-                atm_audio, _ = sf.read(self.audio_data)
-                start = self.audio_offset
-                sd.play(atm_audio[start:])
-                sd.wait()
-                messagebox.showinfo("Reproducción", "Reproducción de audio completa.")
-            else:
-                messagebox.showerror("Error", "Primero debe comparar el audio.")
-        
+            sd.play(self.original_audio[self.audio_offset:], self.rate)        
         except Exception as e:
             messagebox.showerror("Error", f"Error al reproducir el audio: {str(e)}")
 
