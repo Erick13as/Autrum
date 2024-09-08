@@ -8,7 +8,7 @@ import sounddevice as sd
 import matplotlib.pyplot as plt
 from scipy.fft import fft, fftfreq
 from scipy.signal import correlate
-from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
+from PIL import Image, ImageTk  # Import PIL to resize the image
 import struct
 import os
 import noisereduce as nr
@@ -21,14 +21,14 @@ class AudioComparator:
         self.root.title("Comparador de Audio")
         self.root.geometry("800x400")
 
-        # Cargar y redimensionar la imagen de fondo
+        # Loading and resizing the background image
         self.original_image = Image.open("BackgroundImage.jpg")
         self.resized_image = self.original_image.resize((800, 400), Image.Resampling.LANCZOS)
         self.background_image = ImageTk.PhotoImage(self.resized_image)
         self.background_label = tk.Label(root, image=self.background_image)
         self.background_label.place(relwidth=1, relheight=1)
 
-        # Estilo de los botones
+        # Button style
         self.button_style = {
             "font": ("Helvetica", 12, "bold"),
             "bg": "#204054",
@@ -40,23 +40,23 @@ class AudioComparator:
             "relief": "flat"
         }
 
-        # Botón para cargar archivo ATM
+        # Button to load ATM file
         self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm_file, **self.button_style)
         self.load_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
 
-        # Botón para grabar palabra
+        # Button to record word
         self.record_button = tk.Button(root, text="Grabar Palabra", command=self.toggle_recording, **self.button_style)
         self.record_button.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
 
-        # Botón para comparar audio
+        # Audio compare button
         self.compare_button = tk.Button(root, text="Comparar Audio", command=self.compare_audio, **self.button_style)
         self.compare_button.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
 
-        # Botón para reproducir audio
+        # Audio playback button
         self.play_button = tk.Button(root, text="Reproducir Audio", command=self.play_audio, **self.button_style)
         self.play_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-        # Label para mostrar estado de grabación
+        # Label to show recording status
         self.label_style = {
             "font": ("Helvetica", 12, "bold"),
             "bg": "#204054",
@@ -65,15 +65,15 @@ class AudioComparator:
         self.status_label = tk.Label(root, text="Estado: Listo", **self.label_style)
         self.status_label.place(relx=0.5, rely=0.8, anchor=tk.CENTER)
 
-        # Inicialización de variables
+        # Variable initialization
         self.is_original_audio_loaded = False
         self.is_audio_to_compare_recorded = False
         self.rate = 44100
         self.audio_to_compare_path = "temp.wav"
         self.original_audio = None
         self.audio_offset = 0
-        self.is_recording = False  # Variable para controlar el estado de grabación
-        self.stream = None  # Variable para manejar el flujo de grabación
+        self.is_recording = False  # Variable to control the recording status
+        self.stream = None  # Variable to manage the recording flow
 
     def load_atm_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("ATM files", "*.atm")])
@@ -98,7 +98,7 @@ class AudioComparator:
         self.record_button.config(text="Detener Grabación")
         self.is_recording = True
 
-        # Configuración de PyAudio para grabación
+        # PyAudio configuration for recording
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
         RATE = 44100
@@ -259,7 +259,7 @@ class AudioComparator:
 
                 comparisons[i] = values
 
-            sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["fft_distance"], x[1]["power_distance"]), reverse=True)
+            sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["fft_distance"], x[1]["power_distance"]), reverse=False)
 
             _, values = sorted_comparisons[0] # Get first dict item
 
