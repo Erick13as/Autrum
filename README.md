@@ -11,3 +11,9 @@ python -m pip install pydub
 
 python -m pip install sounddevice
 
+# To noise reduction
+python -m pip install noisereduce
+
+# To remove reduced sound
+python -m pip install librosa
+
