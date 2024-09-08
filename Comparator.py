@@ -8,37 +8,64 @@ import sounddevice as sd
 import matplotlib.pyplot as plt
 from scipy.fft import fft, fftfreq
 from scipy.signal import correlate
+from PIL import Image, ImageTk  # Importar PIL para redimensionar la imagen
 
 class AudioComparator:
     def __init__(self, root):
         self.root = root
         self.root.title("Comparador de Audio")
+        self.root.geometry("800x400")
+
+        # Cargar y redimensionar la imagen de fondo
+        self.original_image = Image.open("BackgroundImage.jpg")
+        self.resized_image = self.original_image.resize((800, 400), Image.Resampling.LANCZOS)
+        self.background_image = ImageTk.PhotoImage(self.resized_image)
+        self.background_label = tk.Label(root, image=self.background_image)
+        self.background_label.place(relwidth=1, relheight=1)
+
+        # Estilo de los botones
+        self.button_style = {
+            "font": ("Helvetica", 12, "bold"),
+            "bg": "#204054",
+            "fg": "white",
+            "activebackground": "#104E8B",
+            "activeforeground": "#F0F0F0",
+            "bd": 0,
+            "highlightthickness": 0,
+            "relief": "flat"
+        }
 
         # Botón para cargar archivo ATM
-        self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm)
-        self.load_button.pack()
+        self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm, **self.button_style)
+        self.load_button.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
 
         # Botón para grabar palabra
-        self.record_button = tk.Button(root, text="Grabar Palabra", command=self.record_audio)
-        self.record_button.pack()
-        
+        self.record_button = tk.Button(root, text="Grabar Palabra", command=self.record_audio, **self.button_style)
+        self.record_button.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+
         # Botón para comparar audio
-        self.compare_button = tk.Button(root, text="Comparar Audio", command=self.compare_audio)
-        self.compare_button.pack()
+        self.compare_button = tk.Button(root, text="Comparar Audio", command=self.compare_audio, **self.button_style)
+        self.compare_button.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
 
         # Botón para reproducir audio
-        self.play_button = tk.Button(root, text="Reproducir Audio", command=self.play_audio)
-        self.play_button.pack()
+        self.play_button = tk.Button(root, text="Reproducir Audio", command=self.play_audio, **self.button_style)
+        self.play_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
         # Label para mostrar estado de grabación
-        self.status_label = tk.Label(root, text="Estado: Listo")
-        self.status_label.pack()
+        self.label_style = {
+            "font": ("Helvetica", 12, "bold"),
+            "bg": "#204054",
+            "fg": "white",
+        }
+        self.status_label = tk.Label(root, text="Estado: Listo", **self.label_style)
+        self.status_label.place(relx=0.5, rely=0.8, anchor=tk.CENTER)
 
+        # Inicialización de variables
         self.file_path = None
         self.recorded_audio_path = "recorded.wav"
         self.audio_data = None
         self.audio_offset = None
-
+        
     def load_atm(self):
         self.file_path = filedialog.askopenfilename(filetypes=[("ATM Files", "*.atm")])
         if self.file_path:
