@@ -1,3 +1,5 @@
 .env
 src/temp.wav
 src/audio
+/audio
+temp.wav
