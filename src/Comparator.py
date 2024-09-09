@@ -207,6 +207,8 @@ class AudioComparator:
             return
         
         try:
+            self.audio_offset = 0
+            
             audio_to_compare, _ = sf.read(self.audio_to_compare_path) # Load audio to compare
 
             # Convert to mono data if necessary
@@ -237,17 +239,6 @@ class AudioComparator:
             def cross_correlation(signal_01, signal_02):
                 return correlate(signal_01, signal_02, mode='valid')
             
-            # correlation = cross_correlation(compute_fft(self.original_audio), audio_to_compare_magnitude)
-            # match_index = np.argmax(correlation)
-
-            # print(correlation)
-            # print(match_index)
-            
-            # self.audio_offset = match_index - (len(audio_to_compare - 1))
-            # print(self.audio_offset)
-
-            # self.audio_offset = match_index
-            
             comparisons = {}
 
             for i in range(num_chunks):
@@ -258,19 +249,23 @@ class AudioComparator:
                 chunk_magnitude = compute_fft(chunk)
                 chunk_power = compute_power_spectra(chunk_magnitude)
 
-                # fft_distance = calculate_euclidean_distance(chunk_magnitude, audio_to_compare_magnitude)
-                # power_distance = calculate_euclidean_distance(chunk_power, audio_to_compare_power)
-
                 magnitude_correlation = cross_correlation(chunk_magnitude, audio_to_compare_magnitude)
                 power_correlation = cross_correlation(chunk_power, audio_to_compare_power)
+
+                magnitude_max_index = np.argmax(magnitude_correlation)
+                power_max_index = np.argmax(power_correlation)
+
+                # Find correlation value at the best index
+                magnitude_max_value = magnitude_correlation[magnitude_max_index]
+                power_max_value = power_correlation[power_max_index]
 
                 # print("Magnitude Correlation", magnitude_correlation)
                 # print("Power Correlation", power_correlation)
 
                 values = {
                     "offset": start,
-                    "magnitude_correlation": magnitude_correlation[0],
-                    "power_correlation": power_correlation[0]
+                    "magnitude_correlation": magnitude_max_value,
+                    "power_correlation": power_max_value
                 }
 
                 comparisons[i] = values
