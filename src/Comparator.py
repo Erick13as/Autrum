@@ -144,16 +144,10 @@ class AudioComparator:
 
         messagebox.showinfo("Éxito", "Grabación finalizada.")
 
-    def reduce_noise(self, file_path):
-        # Read recorded file
-        audio_data, sample_rate = sf.read(file_path)
-
-        # Apply noise reduction
-        reduced_noise = nr.reduce_noise(y=audio_data, sr=sample_rate)
-
-        # Save processed audio without background noise
-        sf.write(file_path, reduced_noise, sample_rate)
-        # messagebox.showinfo("Éxito", "Reducción de ruido aplicada correctamente.")
+    def reduce_noise(self, file_path):        
+        audio_data, sample_rate = sf.read(file_path) # Read recorded file
+        reduced_noise = nr.reduce_noise(y=audio_data, sr=sample_rate) # Apply noise reduction
+        sf.write(file_path, reduced_noise, sample_rate) # Save processed audio without background noise
         
     def remove_silence(self, file_path):
         # Load audio without background noise
@@ -161,41 +155,8 @@ class AudioComparator:
 
         # Detect intervals in which there is relevant speech or sound
         non_silent_intervals = librosa.effects.split(audio_data, top_db=40)  # Umbral de dB ajustable
-
-        # Combine only the non-silent parts
-        non_silent_audio = np.concatenate([audio_data[start:end] for start, end in non_silent_intervals])
-
-        # Save audio without silence
-        sf.write(file_path, non_silent_audio, sample_rate)
-
-        # messagebox.showinfo("Éxito", "Silencios eliminados correctamente.")
-
-    def plot_audio(self, file_path, title):
-        try:
-            audio, sample_rate = sf.read(file_path)
-            N = len(audio)
-            T = 1.0 / sample_rate
-            x = np.linspace(0.0, N*T, N, endpoint=False)
-            yf = fft(audio)
-            xf = fftfreq(N, T)[:N//2]
-
-            plt.figure(figsize=(12, 6))
-            plt.subplot(2, 1, 1)
-            plt.plot(x, audio)
-            plt.title(f'{title} - Dominio del Tiempo')
-            plt.xlabel('Tiempo [s]')
-            plt.ylabel('Amplitud')
-
-            plt.subplot(2, 1, 2)
-            plt.plot(xf, 2.0/N * np.abs(yf[:N//2]))
-            plt.title(f'{title} - Dominio de Frecuencia')
-            plt.xlabel('Frecuencia [Hz]')
-            plt.ylabel('Magnitud')
-
-            plt.tight_layout()
-            plt.show()
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al graficar el audio: {str(e)}")
+        non_silent_audio = np.concatenate([audio_data[start:end] for start, end in non_silent_intervals]) # Combine only the non-silent parts
+        sf.write(file_path, non_silent_audio, sample_rate) # Save audio without silence
 
     def compare_audio(self):
         if not self.is_original_audio_loaded:
@@ -206,6 +167,8 @@ class AudioComparator:
             return
         
         try:
+            self.audio_offset = 0
+            
             audio_to_compare, _ = sf.read(self.audio_to_compare_path) # Load audio to compare
 
             # Convert to mono data if necessary
@@ -236,18 +199,10 @@ class AudioComparator:
             def cross_correlation(signal_01, signal_02):
                 return correlate(signal_01, signal_02, mode='valid')
             
-            # correlation = cross_correlation(compute_fft(self.original_audio), audio_to_compare_magnitude)
-            # match_index = np.argmax(correlation)
-
-            # print(correlation)
-            # print(match_index)
-            
-            # self.audio_offset = match_index - (len(audio_to_compare - 1))
-            # print(self.audio_offset)
-
-            # self.audio_offset = match_index
-            
             comparisons = {}
+
+            magnitude_correlations = []
+            power_correlations = []
 
             for i in range(num_chunks):
                 start = i * (chunk_size - overlap)
@@ -257,29 +212,46 @@ class AudioComparator:
                 chunk_magnitude = compute_fft(chunk)
                 chunk_power = compute_power_spectra(chunk_magnitude)
 
-                # fft_distance = calculate_euclidean_distance(chunk_magnitude, audio_to_compare_magnitude)
-                # power_distance = calculate_euclidean_distance(chunk_power, audio_to_compare_power)
-
+                # Calculate correlations
                 magnitude_correlation = cross_correlation(chunk_magnitude, audio_to_compare_magnitude)
                 power_correlation = cross_correlation(chunk_power, audio_to_compare_power)
 
-                # print("Magnitude Correlation", magnitude_correlation)
-                # print("Power Correlation", power_correlation)
+                # Find max values
+                magnitude_max_index = np.argmax(magnitude_correlation)
+                power_max_index = np.argmax(power_correlation)
 
-                values = {
+                # Find correlation value at the best index
+                magnitude_max_value = magnitude_correlation[magnitude_max_index]
+                power_max_value = power_correlation[power_max_index]
+
+                comparisons[i] = {
                     "offset": start,
-                    "magnitude_correlation": magnitude_correlation[0],
-                    "power_correlation": power_correlation[0]
+                    "magnitude_correlation": magnitude_max_value,
+                    "power_correlation": power_max_value
                 }
 
-                comparisons[i] = values
+                magnitude_correlations.append(magnitude_max_value)
+                power_correlations.append(power_max_value)
 
+            min_magnitude_correlation = min(magnitude_correlations)
+            max_magnitude_correlation = max(magnitude_correlations)
+            min_power_correlation = min(power_correlations)
+            max_power_correlation = max(power_correlations)
+
+            def normalize(value, min_value, max_value):
+                return (value - min_value) / (max_value - min_value) * 100 if max_value != min_value else 0
+            
+            for i, values in comparisons.items():
+                values["magnitude_correlation"] = normalize(values["magnitude_correlation"], min_magnitude_correlation, max_magnitude_correlation)
+                values["power_correlation"] = normalize(values["power_correlation"], min_power_correlation, max_power_correlation)
+            
             sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["magnitude_correlation"], x[1]["power_correlation"]), reverse=True)
-            print(sorted_comparisons)
 
             _, values = sorted_comparisons[0] # Get first dict item
 
             self.audio_offset = values["offset"]
+
+            messagebox.showinfo("Match", f'Confianza de la correlación de magnitud: {values['magnitude_correlation']}%\nConfianza de la correlación de potencia: {values['power_correlation']}%')
             
             print("Offset", values["offset"])
             print("Magnitude Correlation", values["magnitude_correlation"])
@@ -298,7 +270,6 @@ class AudioComparator:
             messagebox.showerror("Error", f"Error al reproducir el audio: {str(e)}")
 
 if __name__ == "__main__":
-
     root = tk.Tk()
     app = AudioComparator(root)
     root.mainloop()
