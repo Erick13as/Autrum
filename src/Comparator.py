@@ -235,7 +235,7 @@ class AudioComparator:
             audio_to_compare_power = compute_power_spectra(audio_to_compare_magnitude)
             
             def cross_correlation(signal_01, signal_02):
-                return correlate(signal_01, signal_02, mode='full')
+                return correlate(signal_01, signal_02, mode='valid')
             
             # correlation = cross_correlation(compute_fft(self.original_audio), audio_to_compare_magnitude)
             # match_index = np.argmax(correlation)
