@@ -158,33 +158,6 @@ class AudioComparator:
         non_silent_audio = np.concatenate([audio_data[start:end] for start, end in non_silent_intervals]) # Combine only the non-silent parts
         sf.write(file_path, non_silent_audio, sample_rate) # Save audio without silence
 
-    def plot_audio(self, file_path, title):
-        try:
-            audio, sample_rate = sf.read(file_path)
-            N = len(audio)
-            T = 1.0 / sample_rate
-            x = np.linspace(0.0, N*T, N, endpoint=False)
-            yf = fft(audio)
-            xf = fftfreq(N, T)[:N//2]
-
-            plt.figure(figsize=(12, 6))
-            plt.subplot(2, 1, 1)
-            plt.plot(x, audio)
-            plt.title(f'{title} - Dominio del Tiempo')
-            plt.xlabel('Tiempo [s]')
-            plt.ylabel('Amplitud')
-
-            plt.subplot(2, 1, 2)
-            plt.plot(xf, 2.0/N * np.abs(yf[:N//2]))
-            plt.title(f'{title} - Dominio de Frecuencia')
-            plt.xlabel('Frecuencia [Hz]')
-            plt.ylabel('Magnitud')
-
-            plt.tight_layout()
-            plt.show()
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al graficar el audio: {str(e)}")
-
     def compare_audio(self):
         if not self.is_original_audio_loaded:
             messagebox.showerror("Error", "Debe cargar el archivo ATM.")
