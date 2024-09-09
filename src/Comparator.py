@@ -84,6 +84,7 @@ class AudioComparator:
                 self.original_audio = np.frombuffer(af.read(audio_len * 2), dtype=np.int16)  # Cada muestra es un int16
 
                 self.is_original_audio_loaded = True
+                self.audio_offset = 0
 
                 messagebox.showinfo("Éxito", "Archivo ATM cargado exitosamente.")
         
@@ -136,12 +137,9 @@ class AudioComparator:
         wf.setframerate(44100)
         wf.writeframes(b''.join(self.frames))
         wf.close()
-
-        # Apply noise reduction
-        self.reduce_noise(self.audio_to_compare_path)
-
-        # Remove all reduced sound
-        self.remove_silence(self.audio_to_compare_path)
+        
+        self.reduce_noise(self.audio_to_compare_path) # Apply noise reduction
+        self.remove_silence(self.audio_to_compare_path) # Remove all reduced sound
 
         self.is_audio_to_compare_recorded = True
 
@@ -156,7 +154,7 @@ class AudioComparator:
 
         # Save processed audio without background noise
         sf.write(file_path, reduced_noise, sample_rate)
-        messagebox.showinfo("Éxito", "Reducción de ruido aplicada correctamente.")
+        # messagebox.showinfo("Éxito", "Reducción de ruido aplicada correctamente.")
         
     def remove_silence(self, file_path):
         # Load audio without background noise
@@ -171,7 +169,7 @@ class AudioComparator:
         # Save audio without silence
         sf.write(file_path, non_silent_audio, sample_rate)
 
-        messagebox.showinfo("Éxito", "Silencios eliminados correctamente.")
+        # messagebox.showinfo("Éxito", "Silencios eliminados correctamente.")
 
     def plot_audio(self, file_path, title):
         try:
@@ -225,7 +223,8 @@ class AudioComparator:
             def compute_fft(signal):
                 signal_fft = fft(signal)
                 signal_magnitude = np.abs(signal_fft)
-                return signal_magnitude
+                normalized_magnitude = signal_magnitude / np.sum(signal_magnitude)
+                return normalized_magnitude
             
             def compute_power_spectra(signal_magnitude):
                 signal_power = signal_magnitude ** 2 # Get power spectra
@@ -234,9 +233,20 @@ class AudioComparator:
 
             audio_to_compare_magnitude = compute_fft(audio_to_compare)
             audio_to_compare_power = compute_power_spectra(audio_to_compare_magnitude)
+            
+            def cross_correlation(signal_01, signal_02):
+                return correlate(signal_01, signal_02, mode='full')
+            
+            # correlation = cross_correlation(compute_fft(self.original_audio), audio_to_compare_magnitude)
+            # match_index = np.argmax(correlation)
 
-            def calculate_euclidean_distance(value_01, value_02):
-                return np.sqrt(np.sum((value_01 - value_02) ** 2))
+            # print(correlation)
+            # print(match_index)
+            
+            # self.audio_offset = match_index - (len(audio_to_compare - 1))
+            # print(self.audio_offset)
+
+            # self.audio_offset = match_index
             
             comparisons = {}
 
@@ -248,25 +258,33 @@ class AudioComparator:
                 chunk_magnitude = compute_fft(chunk)
                 chunk_power = compute_power_spectra(chunk_magnitude)
 
-                fft_distance = calculate_euclidean_distance(chunk_magnitude, audio_to_compare_magnitude)
-                power_distance = calculate_euclidean_distance(chunk_power, audio_to_compare_power)
+                # fft_distance = calculate_euclidean_distance(chunk_magnitude, audio_to_compare_magnitude)
+                # power_distance = calculate_euclidean_distance(chunk_power, audio_to_compare_power)
+
+                magnitude_correlation = cross_correlation(chunk_magnitude, audio_to_compare_magnitude)
+                power_correlation = cross_correlation(chunk_power, audio_to_compare_power)
+
+                # print("Magnitude Correlation", magnitude_correlation)
+                # print("Power Correlation", power_correlation)
 
                 values = {
-                    "start": start,
-                    "fft_distance": fft_distance,
-                    "power_distance": power_distance
+                    "offset": start,
+                    "magnitude_correlation": magnitude_correlation[0],
+                    "power_correlation": power_correlation[0]
                 }
 
                 comparisons[i] = values
 
-            sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["fft_distance"], x[1]["power_distance"]), reverse=False)
+            sorted_comparisons = sorted(comparisons.items(), key=lambda x: (x[1]["magnitude_correlation"], x[1]["power_correlation"]), reverse=True)
+            print(sorted_comparisons)
 
             _, values = sorted_comparisons[0] # Get first dict item
 
-            self.audio_offset = values["start"]
-            print("Offset", values["start"])
-            print("FFT Distance", values["fft_distance"])
-            print("Power Distance", values["power_distance"])
+            self.audio_offset = values["offset"]
+            
+            print("Offset", values["offset"])
+            print("Magnitude Correlation", values["magnitude_correlation"])
+            print("Power Correlation", values["power_correlation"])
         except Exception as e:
             messagebox.showerror("Error", f"Error al comparar audio: {str(e)}")
 
