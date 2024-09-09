@@ -8,6 +8,17 @@ Por otro lado, en los medios no guiados, como las ondas electromagnéticas que s
 
 En ambos tipos de medios, aunque la calidad de la señal puede verse afectada por la atenuación, el ruido o la distorsión, las características fisiológicas de cada hablante se preservan en la señal acústica. Esto significa que las diferencias en las cuerdas vocales, el tamaño de la laringe y las cavidades de resonancia hacen que, incluso después de pasar por diversos medios de transmisión, cada voz conserve su carácter único. Por lo tanto, aunque el medio puede modificar ligeramente la señal, la individualidad de la voz humana se mantiene reconocible gracias a las propiedades acústicas que se originan en la fuente misma de la señal.
 
+En los gráficos a continuación, se muestran las diferencias en las frecuencias fundamentales y los armónicos de las voces de los integrantes del grupo. Se puede observar cómo las variaciones en los timbres y la potencia de los armónicos confirman la teoría de que cada voz humana es única.
+
+### Integrante 1:
+
+![Grafico 1](img/grafico1.jpeg)
+
+### Integrante 2:
+![Grafico 2](img/grafico2.jpeg)
+
+Al finalizar la integración de los gráficos, se puede observar que los resultados visuales respaldan de manera clara la explicación teórica sobre las diferencias fisiológicas en las voces. Las gráficas en el dominio del tiempo y la frecuencia muestran patrones únicos para cada integrante.
+
 ## ¿Por qué la comparación de voces es tan poco exacta mediante armónicos?
 
 La comparación de voces mediante armónicos es imprecisa porque los armónicos representan solo una parte de la firma acústica completa de una voz. Los armónicos son frecuencias múltiples de una frecuencia fundamental y contribuyen al timbre de la voz, pero no capturan la complejidad total de la señal vocal. La voz humana es una mezcla compleja de elementos que van mucho más allá de las frecuencias armónicas. Cada persona genera una combinación única de ruido, inflexiones, modulaciones y formantes, los cuales varían constantemente durante el habla. Los formantes son bandas de frecuencias amplificadas por las cavidades vocales y son cruciales para diferenciar los sonidos de las vocales, mientras que las inflexiones y modulaciones reflejan los matices emocionales y la intención del hablante.
@@ -25,3 +36,10 @@ Además, efectos de ruido y distorsión pueden provocar la introducción de comp
 El canal de transmisión también puede introducir distorsión no lineal, donde las diferentes frecuencias en una señal se ven afectadas de manera desigual. Esto puede causar que los armónicos se desplacen o se alteren, lo que distorsiona la firma acústica de la voz. A diferencia de las frecuencias fundamentales, que son relativamente estables, los armónicos pueden ser mucho más sensibles a este tipo de distorsiones. Como resultado, un análisis de voz basado únicamente en los armónicos no refleja con precisión la voz original, ya que las distorsiones del canal modifican estos componentes críticos de manera impredecible.
 
 Otro fenómeno a considerar es el desvanecimiento de múltiples trayectorias, que es común en medios no guiados como las ondas de radio. En este caso, las señales reflejadas por diferentes objetos llegan al receptor en diferentes momentos, lo que provoca la superposición de versiones ligeramente distintas de la señal original. Este desvanecimiento puede generar fluctuaciones en la amplitud de los armónicos, afectando la consistencia de la señal. Cuando se intenta realizar una comparación basada en armónicos en un entorno afectado por desvanecimientos, la precisión se reduce aún más.
+
+Para ilustrar la dificultad de realizar una comparación precisa entre voces usando solo armónicos, se realizó un experimento en el que un integrante grabó su voz contando del 1 al 10. Luego, otro integrante grabó únicamente el número "10". El objetivo fue buscar una coincidencia entre la parte final del audio del primer integrante y la grabación del segundo.
+
+#### Comparación:
+![Grafico 3](img/grafico3.jpeg)
+
+El gráfico resultante (ver Figura 1) muestra las señales de ambas grabaciones y cómo el código intenta identificar la coincidencia. Aunque los resultados de la correlación arrojan una confianza de la correlación de magnitud del 100.0% y una confianza de la correlación de potencia del 95.26%, esto no implica una coincidencia perfecta en términos perceptuales o acústicos. A nivel matemático, estos valores sugieren una alta similitud en la estructura general de las señales, pero en la práctica, las variaciones en el timbre, las modulaciones y otros factores acústicos no capturados en los armónicos hacen que la coincidencia no sea exacta.
