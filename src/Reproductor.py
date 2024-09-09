@@ -48,7 +48,7 @@ class AudioPlayer:
         }
 
         # Create the buttons for the UI.
-        self.load_button = tk.Button(root, text="Cargar Archivo WAV", command=self.load_atm_file, **self.button_style)
+        self.load_button = tk.Button(root, text="Cargar Archivo ATM", command=self.load_atm_file, **self.button_style)
         self.start_button = tk.Button(root, text="Reproducir Audio", command=self.play_audio, state=tk.DISABLED, **self.button_style)
         self.stop_button = tk.Button(root, text="Detener Reproducción", command=self.pause_audio, state=tk.DISABLED, **self.button_style)
         self.resume_button = tk.Button(root, text="Reanudar Reproducción", command=self.resume_audio, state=tk.DISABLED, **self.button_style)
