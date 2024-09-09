@@ -1,4 +1,4 @@
-# Autrum
+# Autrum <!-- omit in toc -->
 
 - [Introducción](#introducción)
 - [Instalación](#instalación)
