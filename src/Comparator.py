@@ -81,8 +81,7 @@ class AudioComparator:
         if file_path:
             with open(file_path, 'rb') as af:
                 audio_len = struct.unpack('I', af.read(4))[0]            
-                self.original_audio = np.frombuffer(af.read(audio_len * 2), dtype=np.int16)  # Cada muestra es un int16
-
+                self.original_audio = np.frombuffer(af.read(audio_len * 2), dtype=np.int16)  # Each sample is an int16
                 self.is_original_audio_loaded = True
                 self.audio_offset = 0
 
@@ -99,27 +98,27 @@ class AudioComparator:
         self.record_button.config(text="Detener Grabación")
         self.is_recording = True
 
-        # PyAudio configuration for recording
+        # Configuración de PyAudio para grabación
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
         RATE = 44100
         CHUNK = 1024
 
-        self.frames = []  # Almacena los frames de audio grabados
+        self.frames = []  # Stores recorded audio frames
 
         self.audio = pyaudio.PyAudio()
         self.stream = self.audio.open(format=FORMAT, channels=CHANNELS,
                                       rate=RATE, input=True,
                                       frames_per_buffer=CHUNK)
 
-        # Graba en un bucle hasta que se detenga la grabación
+        # Records in a loop until the recording is stopped
         self.record_audio_loop()
 
     def record_audio_loop(self):
         if self.is_recording:
             data = self.stream.read(1024)
             self.frames.append(data)
-            self.root.after(1, self.record_audio_loop)  # Llamada recursiva para continuar grabando
+            self.root.after(1, self.record_audio_loop)  # Recursive call to continue recording
 
     def stop_recording(self):
         self.status_label.config(text="Estado: Listo")
@@ -130,7 +129,7 @@ class AudioComparator:
         self.stream.close()
         self.audio.terminate()
 
-        # Guardar la grabación en un archivo WAV
+        # Save the recording as a WAV file
         wf = wave.open(self.audio_to_compare_path, 'wb')
         wf.setnchannels(1)
         wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
